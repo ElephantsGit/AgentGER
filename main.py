@@ -13,8 +13,8 @@ Pipelines:
 - Pipeline 3: Direct Scoring
 
 Fine-tuning:
-- Scheme 1 (l-1): Includes improved_summary
-- Scheme 2 (l-2): Excludes improved_summary
+- Scheme 1 (l-1):  Scoring only
+- Scheme 2 (l-2): Scoring + improved_summary
 """
 import sys
 import os
@@ -224,7 +224,7 @@ def cmd_train(args):
         convert_to_training_format(
             input_path=args.raw_data,
             output_path=training_data_path,
-            include_improved_summary=(args.scheme == "l-1"),
+            include_improved_summary=(args.scheme == "l-2"),
         )
         args.data_path = training_data_path
     
