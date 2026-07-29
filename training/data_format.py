@@ -229,8 +229,8 @@ def generate_training_files(
         output_dir: Output directory path
         
     Generated files:
-        - training_data_l1.json: Includes improved_summary (for l-1 scheme)
-        - training_data_l2.json: Excludes improved_summary (for l-2 scheme)
+        - training_data_l1.json: Excludes improved_summary (for l-1 scheme)
+        - training_data_l2.json: Includes improved_summary (for l-2 scheme)
     """
     
     output_dir_path = Path(output_dir)
