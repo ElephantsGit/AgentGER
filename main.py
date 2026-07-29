@@ -417,13 +417,13 @@ def main():
         "--lora_path_f2",
         type=str,
         default=None,
-        help="LoRA weights path for Feature 2 (Scoring + Improved Summary), e.g., ./lora_weights/l-1",
+        help="LoRA weights path for Feature 2 (Scoring + Improved Summary), e.g., ./lora_weights/l-2",
     )
     p1_parser.add_argument(
         "--lora_path_f3",
         type=str,
         default=None,
-        help="LoRA weights path for Feature 3 (Scoring Only), e.g., ./lora_weights/l-2",
+        help="LoRA weights path for Feature 3 (Scoring Only), e.g., ./lora_weights/l-3",
     )
     p1_parser.add_argument(
         "--resume",
