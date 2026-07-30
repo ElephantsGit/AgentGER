@@ -1,12 +1,13 @@
 # 📊AgentGER
 🏠 *Current Version: v1.0*
 
-This repository contains the code to use AgentGER from the paper [AgentGER: Toward a Human-Aligned Generation–Evaluation–Refinement Paradigm for Figure Understanding].
+This repository contains the code to use AgentGER from the paper [AgentGER: Toward a Human-Aligned Generation–Evaluation–Refinement Paradigm for Scientific Figure Understanding].
 
 *🤗 This codebase is released as Version v1.0. We are dedicated to its continuous improvement. If you have any questions or suggestions, you are welcome to open an issue or submit a pull request for new features or bug fixes.*
 ## 👋 Introduction
 
-Figure-to-text is a key task for assessing figure understanding capabilities of models. Existing approaches face two main challenges: the high cost of constructing high-quality data and the lack of fine-grained, interpretable evaluation aligned with human experts. Accordingly, we propose AgentGER, an agent framework that integrates capabilities of generation, evaluation, and refinement for figure-to-text. AgentGER includes a Generation Model that produces summaries with hierarchical quality levels, an Evaluation Model that performs multi-dimensional, human-aligned assessment with a Chain-of-Evaluation mechanism, and a Refinement Model that improves summaries based on evaluation feedback. We further construct a large-scale dataset with 11,000 summaries and 55,000 multi-dimensional scoring labels through a human–machine collaborative pipeline. Experiments show that AgentGER significantly outperforms all strong baselines, surpasses Gemini-3.0-Pro on evaluation benchmarks, and achieves performance comparable to human experts in both evaluation and refinement tasks.
+
+Figure-to-text is a key task for assessing models’ scientific figure understanding capabilities. Existing approaches face two main challenges: the high cost of constructing high-quality scientific data and the lack of fine-grained, interpretable evaluation aligned with human experts. To address these challenges, we propose AgentGER, a generation–evaluation–refinement framework in which GenModel generates summaries with hierarchical quality levels, EvaModel evaluates summaries across five human-aligned dimensions by first producing dimension-wise Chain-of-Evaluation rationales and then assigning the corresponding scores, and RefModel uses this feedback to improve weak dimensions while preserving correct content. We further construct FigGER, comprising 11,000 summaries and 55,000 five-dimensional scoring labels with reasoning chains through human–machine collaborative annotation. Experiments show that AgentGER outperforms strong baselines, surpasses Gemini-3-Pro on the evaluation benchmark, and achieves performance approaching human experts in both evaluation and refinement.
 <p align="center">
 
   <img src="Introduction.png"  width="70%"/>
@@ -28,7 +29,7 @@ Figure-to-text is a key task for assessing figure understanding capabilities of 
 - Total Score = Σ(Dimension Score × 0.2) × 5, with a full score of 10 points
 
 **Validation Rules**：
-- Total score of the five dimensions ≥ 8 or 9 (out of 10 points)
+- Total score of the five dimensions ≥ 8
 - **Faithfulness must = 2**
 - No dimension score can be 0
 - Maximum 3 retries; discard if failed after retries
@@ -48,7 +49,7 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
 pip install -r requirements.txt
 ```
 ### Dataset Download
-Due to anonymity policies and file size limitations, the complete dataset will be released after the paper is accepted.
+For preview and reproducibility, we currently release 100 samples from the training set and 100 samples from the test set. The complete dataset will be made publicly available after the paper is accepted.
 ### Model Preparation
 Place the Qwen3-VL-8B-Instruct or Qwen3-VL-30B model in the project root directory
 ```bash
@@ -104,7 +105,7 @@ python main.py feature3 \
     --output ./output/scores.jsonl \
     --gpu 0
 ```
-🗄️ After running the feature3 branch of [main.py](main.py), the refined summary of sample.png is scored, and results are saved to ./output/result.jsonl.
+🗄️ After running the feature3 branch of [main.py](main.py), the refined summary of sample.png is scored, and results are saved to ./output/scores.jsonl.
 ### Full Pipeline: Generate Summary -> Score & Refine -> Quality Validation
 ```bash
 python main.py pipeline1 \
@@ -153,11 +154,11 @@ python api_pipeline/main.py pipeline3 --image ./data/sample.png --summary "Summa
 ### Scheme Description
 | Scheme| Output Content                      | Applicable Scenario         | Corresponding Stage|Training Method|
 | ---- | -------------------------------------| ----------------------------| --------| -------- |
-| l-1  | Score + Reason + Weight              | Scoring only                |Stage 3  |Standard Training|
-| l-2  |Score + Reason + Weight + improved_summary| Scoring + Refinement    |Stage 2   |Standard Training|
-| l-3-distill |Score + Reason + Weight + improved_summary|Enhanced Scoring + Refinement|Stage 2   | **Knowledge Distillation** |
+| l-1  | Score + Reason              | Scoring only                |Stage 3  |Standard Training|
+| l-2  |Score + Reason + improved_summary| Scoring + Refinement    |Stage 2   |Standard Training|
+| l-3-distill |Score + Reason + improved_summary|Enhanced Scoring + Refinement|Stage 2   | **Knowledge Distillation** |
 #### Knowledge Distillation Description：
-* Teacher Model: l-2 (Scoring-only model)
+* Teacher Model: l-2 
 * Student Model: l-3-distill (Model with both scoring and refinement capabilities)
 * Training with knowledge distillation solves the catastrophic forgetting problem while maintaining high-quality scoring and refinement capabilities.
  
@@ -235,7 +236,7 @@ python training/train_lora_distill.py \
     --output_dir ./lora_weights/l-3-distill \
     --lora_r 64 \
     --lora_alpha 128 \
-    --learning_rate 1e-4 \
+    --learning_rate 2e-4 \
     --num_epochs 3 \
     --batch_size 1 \
     --gradient_accumulation_steps 8 \
@@ -250,6 +251,35 @@ python training/train_lora_distill.py \
 * `--score_ratio`Ratio of scoring data in mixed data (default 0.3, i.e., 30% scoring data + 70% refinement data)  
   
 🗄️ Use l-2 as the teacher model and perform knowledge distillation with a mixed dataset (scoring dataset + scoring + refinement summary dataset) to obtain `l-3-distill`, which maintains both high-quality scoring and refinement capabilities.
+## 🏆 Main Results
+| Method | PC (↑) | SC (↑) | MAE (↓) | MSE (↓) |
+|---|---:|---:|---:|---:|
+| **Reference-based Methods** |  |  |  |  |
+| **Human** | **0.758** | **0.801** | **0.096** | **0.065** |
+| BLEU | 0.244 | 0.277 | 0.123 | 0.023 |
+| ROUGE | 0.367 | 0.323 | 0.244 | 0.084 |
+| BERTScore | 0.363 | 0.225 | 0.728 | 0.531 |
+| CIDEr | 0.105 | -0.011 | 0.367 | 0.554 |
+| **Reference-free Methods** |  |  |  |  |
+| InternVL2.5-8B | 0.391 | 0.364 | 0.227 | 0.129 |
+| MiniCPM-V2.6 | 0.475 | 0.345 | 0.191 | 0.092 |
+| GPT-5-Mini | 0.469 | 0.425 | 0.385 | 0.237 |
+| Gemini-2.5-Flash | 0.505 | 0.462 | 0.396 | 0.302 |
+| Qwen2.5-VL-7B | 0.533 | 0.542 | 0.213 | 0.132 |
+| Qwen3-VL-8B | 0.595 | 0.609 | 0.126 | 0.081 |
+| Gemini-3-Pro | 0.639 | 0.629 | 0.394 | 0.269 |
+| **Trained Methods** |  |  |  |  |
+| ChartInstruct | 0.421 | 0.430 | 0.187 | 0.113 |
+| UniChart | 0.448 | 0.433 | 0.185 | 0.104 |
+| Qwen3-VL-8B | 0.643 | 0.639 | 0.135 | 0.109 |
+| AgentGER w/o COE | 0.651 | 0.642 | 0.171 | 0.124 |
+| AgentGER w/o KD | 0.686 | 0.668 | 0.143 | 0.097 |
+| AgentGER w/o ER | 0.697 | 0.644 | 0.124 | 0.066 |
+| **AgentGER (8B)** | **0.747** | **0.776** | **0.085** | **0.057** |
+
+**AgentGER achieves the best performance across all metrics and approaches human-level agreement**. AgentGER obtains the highest PC of 0.747 and SC of 0.776, while also achieving the lowest MAE and MSE among all methods. It outperforms both general MLLMs and trained models, showing the effectiveness of human-aligned multi-dimensional evaluation. The ablation results further show that removing knowledge distillation (KD) or experience replay (ER) degrades performance, confirming that KD and ER help preserve evaluation consistency and stabilize refinement-oriented training.
+
+
 ## 📜 License
 Our original data contributions are distributed under the MIT license.
 
