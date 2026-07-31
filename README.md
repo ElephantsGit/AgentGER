@@ -198,7 +198,7 @@ python training/data_format.py \
   }
 ]
 ```
-#### Step 2: Training Stage 1 — EvaModel
+#### Training Stage 1 — EvaModel
 ```bash
 # Scoring only (l-1, Training Stage 1)
 python main.py train \
