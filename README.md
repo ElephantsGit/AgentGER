@@ -26,7 +26,7 @@ Figure-to-text is a key task for assessing models’ scientific figure understan
 | **Analysis**<br>    |Whether professional terminology is used and analysis depth is achieved|Lack of professionalism|Insufficient professional expression|Accurate terminology and in-depth analysis|
 
 **Scoring Rules**：
-- Total Score = Σ(Dimension Score × 0.2) × 5, with a full score of 10 points
+- Total Score = Σ Dimension Score
 
 **Validation Rules**：
 - Total score of the five dimensions ≥ 8
@@ -50,6 +50,10 @@ pip install -r requirements.txt
 ```
 ### Dataset Download
 For preview and reproducibility, we currently release 100 samples from the training set and 100 samples from the test set. The complete dataset will be made publicly available after the paper is accepted.
+- [100 training samples](./data/output/training_data_l2.json)
+- [100 test samples](./data/output/test_samples100.jsonl)
+- [Training figures](./data/samples_images)
+- [Test figures](./data/check_images)
 ### Model Preparation
 Place the Qwen3-VL-8B-Instruct or Qwen3-VL-30B model in the project root directory
 ```bash
@@ -64,13 +68,14 @@ project_root/
 ├── Qwen3-VL-30B/            # Base model (30B version, optional)
 │   └── ...
 ├── lora_weights/            # LoRA fine-tuning weights
-│   ├── l-1/                 # Scoring only (Stage 3)
-│   └── l-2/                 # Scoring + Refinement (Stage 2)
+│   ├── l-1/                 # EvaModel: evaluation only
+│   ├── l-2/                 # Basic RefModel: evaluation + refinement
+│   └── l-3-distill          # Full RefModel: refinement + KD + ER
 └── ...
 ```
 ## 🚥 Framework Usage
 The overall workflow of the framework is divided into three stages: batch summary generation, single-sample scoring with refined summary generation, and re-scoring validation. The usage of scripts for each stage is as follows:
-### Stage 1: Batch Summary Generation
+### Workflow Step 1: Batch Summary Generation
 ```bash
 python main.py feature1 \
     --image_folder ./data/images \
@@ -86,7 +91,7 @@ python main.py feature1 \
 * `--high_ratio` Ratio of high-quality summaries (default 0.4)  
 
 🗄️ After running the feature1 branch of [main.py](main.py), summaries of low, medium, and high quality (per the set ratios) will be generated for all images in the image_folder, and results are saved to ./data/output/summaries.jsonl.
-### Stage 2: Single-Sample Scoring + Refined Summary Generation
+### Workflow Step 2: Evaluation and Refinement
 ```bash
 python main.py feature2 \
     --image ./data/sample.png \
@@ -96,7 +101,7 @@ python main.py feature2 \
     --gpu 0
 ```
 🗄️ After running the feature2 branch of [main.py](main.py), the existing summary of sample.png is scored, a refined summary is generated, and results are saved to ./output/result.jsonl.You can also use l-3-distill for the lora_path, which delivers better performance.
-### Stage 3: Scoring Validation
+### Workflow Step 3: Refinement Validation
 ```bash
 python main.py feature3 \
     --image ./data/sample.png \
@@ -152,15 +157,15 @@ python api_pipeline/main.py pipeline3 --image ./data/sample.png --summary "Summa
 ```
 ## 🚧 LoRA Fine-Tuning
 ### Scheme Description
-| Scheme| Output Content                      | Applicable Scenario         | Corresponding Stage|Training Method|
-| ---- | -------------------------------------| ----------------------------| --------| -------- |
-| l-1  | Score + Reason              | Scoring only                |Stage 3  |Standard Training|
-| l-2  |Score + Reason + improved_summary| Scoring + Refinement    |Stage 2   |Standard Training|
-| l-3-distill |Score + Reason + improved_summary|Enhanced Scoring + Refinement|Stage 2   | **Knowledge Distillation** |
+| Scheme      | Output Content                       | Applicable Scenario          |Paper role              |Training Method             |
+|-------------| -------------------------------------|------------------------------|------------------------|----------------------------|
+| l-1         |Scores + CoE rationales               |Scoring only                  |EvaModel / Stage 1      |Standard Training           |
+| l-2         |Scores + CoE + improved summary       |Scoring + Refinement          |Basic RefModel ablation |Standard Training           |
+| l-3-distill |Scores + CoE + improved summary       |Enhanced Scoring + Refinement |Full RefModel / Stage 2 |Refinement + KD + ER        |
 #### Knowledge Distillation Description：
-* Teacher Model: l-2 
+* Teacher Model: l-1 (frozen EvaModel)
 * Student Model: l-3-distill (Model with both scoring and refinement capabilities)
-* Training with knowledge distillation solves the catastrophic forgetting problem while maintaining high-quality scoring and refinement capabilities.
+* Knowledge distillation and experience replay mitigate catastrophic forgetting and help preserve EvaModel's evaluation capability during refinement training.
  
 🗄️ Perform LoRA fine-tuning on Qwen3-VL-8B-Instruct: fine-tune with a scoring-only dataset to obtain `l-1`, and fine-tune with a dataset containing scores and refined summaries to obtain `l-2`. After obtaining l-2, use l-2 as the teacher model and perform knowledge distillation with a mixed dataset (scoring dataset + scoring + refined summary dataset) to obtain `l-3-distill`, which maintains both high-quality scoring and refinement capabilities.
 ### Training Steps
@@ -184,7 +189,8 @@ python training/data_format.py \
         "role": "user",
         "content": "Evaluation prompt + Original summary"
       },
-      {
+      {<img width="895" height="210" alt="image" src="https://github.com/user-attachments/assets/d0deb977-940b-4e42-82a5-e15fa27dcace" />
+
         "role": "assistant",
         "content": "<evaluation>{...}</evaluation>[<modification>{...}</modification>]"
       }
@@ -230,9 +236,9 @@ python main.py train \
 # Scoring + Refinement (l-3-distill, Stage 2)
 python training/train_lora_distill.py \
     --base_model_path ./Qwen3-VL-8B-Instruct \
-    --teacher_lora_path ./lora_weights/l-2 \
-    --score_data_path ./data/output/training_data_l2.json \
-    --refine_data_path ./data/output/training_data_l1.json \
+    --teacher_lora_path ./lora_weights/l-1 \
+    --score_data_path ./data/output/training_data_l1.json \
+    --refine_data_path ./data/output/training_data_l2.json \
     --output_dir ./lora_weights/l-3-distill \
     --lora_r 64 \
     --lora_alpha 128 \
@@ -272,7 +278,7 @@ python training/train_lora_distill.py \
 | ChartInstruct | 0.421 | 0.430 | 0.187 | 0.113 |
 | UniChart | 0.448 | 0.433 | 0.185 | 0.104 |
 | Qwen3-VL-8B | 0.643 | 0.639 | 0.135 | 0.109 |
-| AgentGER w/o COE | 0.651 | 0.642 | 0.171 | 0.124 |
+| AgentGER w/o CoE | 0.651 | 0.642 | 0.171 | 0.124 |
 | AgentGER w/o KD | 0.686 | 0.668 | 0.143 | 0.097 |
 | AgentGER w/o ER | 0.697 | 0.644 | 0.124 | 0.066 |
 | **AgentGER (8B)** | **0.747** | **0.776** | **0.085** | **0.057** |
