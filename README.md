@@ -232,7 +232,7 @@ python main.py train \
     --gradient_accumulation_steps 8
 ```
  🗄️ Use Qwen3-VL-8B-Instruct as the base model and fine-tune with training_data_l2.json for scoring and refinement to obtain ./lora_weights/l-2.
-### Training Stage 2 — Full RefModel
+#### Training Stage 2 — Full RefModel
 ```bash
 # Scoring + Refinement (l-3-distill, Training Stage 2)
 python training/train_lora_distill.py \
@@ -284,7 +284,8 @@ python training/train_lora_distill.py \
 | AgentGER w/o ER | 0.697 | 0.644 | 0.124 | 0.066 |
 | **AgentGER (8B)** | **0.747** | **0.776** | **0.085** | **0.057** |
 
-**AgentGER achieves the best performance across all metrics and approaches human-level agreement**. AgentGER obtains the highest PC of 0.747 and SC of 0.776, while also achieving the lowest MAE and MSE among all methods. It outperforms both general MLLMs and trained models, showing the effectiveness of human-aligned multi-dimensional evaluation. The ablation results further show that removing knowledge distillation (KD) or experience replay (ER) degrades performance, confirming that KD and ER help preserve evaluation consistency and stabilize refinement-oriented training.
+**AgentGER achieves the best performance across all metrics and approaches human-level agreement**.  
+AgentGER obtains the highest PC of 0.747 and SC of 0.776, while also achieving the lowest MAE and MSE among all methods. It outperforms both general MLLMs and trained models, showing the effectiveness of human-aligned multi-dimensional evaluation. The ablation results further show that removing knowledge distillation (KD) or experience replay (ER) degrades performance, confirming that KD and ER help preserve evaluation consistency and stabilize refinement-oriented training.
 
 
 ## 📜 License
