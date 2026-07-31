@@ -51,9 +51,9 @@ pip install -r requirements.txt
 ### Dataset Download
 For preview and reproducibility, we currently release 100 samples from the training set and 100 samples from the test set. The complete dataset will be made publicly available after the paper is accepted.
 - [100 training samples](./data/output/training_data_l2.json)
-- [100 test samples](./data/output/test_samples100.jsonl)
-- [Training figures](./data/samples_images)
-- [Test figures](./data/check_images)
+- [100 test samples](./data/output/test_samples_100.jsonl)
+- [Training figures](./data/sample-images)
+- [Test figures](./data/check-images)
 ### Model Preparation
 Place the Qwen3-VL-8B-Instruct or Qwen3-VL-30B model in the project root directory
 ```bash
