@@ -156,6 +156,7 @@ python api_pipeline/main.py pipeline2 --image ./data/sample.png --summary "Origi
 python api_pipeline/main.py pipeline3 --image ./data/sample.png --summary "Summary to be scored"
 ```
 ## 🚧 LoRA Fine-Tuning
+AgentGER follows a two-stage curriculum learning strategy. In Training Stage 1, EvaModel learns five-dimensional evaluation and dimension-wise Chain-of-Evaluation rationales. In Training Stage 2, RefModel learns evaluation-guided refinement while preserving EvaModel's evaluation capability through knowledge distillation and experience replay.
 ### Scheme Description
 | Scheme      | Output Content                       | Applicable Scenario          |Paper role              |Training Method             |
 |-------------| -------------------------------------|------------------------------|------------------------|----------------------------|
@@ -165,11 +166,11 @@ python api_pipeline/main.py pipeline3 --image ./data/sample.png --summary "Summa
 #### Knowledge Distillation Description：
 * Teacher Model: l-1 (frozen EvaModel)
 * Student Model: l-3-distill (Model with both scoring and refinement capabilities)
-* Knowledge distillation and experience replay mitigate catastrophic forgetting and help preserve EvaModel's evaluation capability during refinement training.
+* Knowledge distillation and experience replay mitigate catastrophic forgetting and help preserve EvaModel's evaluation capability during refinement training.After training l-1 as EvaModel, use a frozen copy of l-1 as the teacher and initialize RefModel from l-1. The full RefModel is then trained on evaluation and refinement data using refinement, knowledge-distillation, and experience-replay objectives.
  
-🗄️ Perform LoRA fine-tuning on Qwen3-VL-8B-Instruct: fine-tune with a scoring-only dataset to obtain `l-1`, and fine-tune with a dataset containing scores and refined summaries to obtain `l-2`. After obtaining l-2, use l-2 as the teacher model and perform knowledge distillation with a mixed dataset (scoring dataset + scoring + refined summary dataset) to obtain `l-3-distill`, which maintains both high-quality scoring and refinement capabilities.
+🗄️ Perform LoRA fine-tuning on Qwen3-VL-8B-Instruct: fine-tune with a scoring-only dataset to obtain `l-1`, and fine-tune with a dataset containing scores and refined summaries to obtain `l-2`. 
 ### Training Steps
-#### Step 1: Data Preparation
+#### Data Preparation
 ```bash
 python training/data_format.py \
     --input data/output/dataset.jsonl \
@@ -189,8 +190,7 @@ python training/data_format.py \
         "role": "user",
         "content": "Evaluation prompt + Original summary"
       },
-      {<img width="895" height="210" alt="image" src="https://github.com/user-attachments/assets/d0deb977-940b-4e42-82a5-e15fa27dcace" />
-
+      {
         "role": "assistant",
         "content": "<evaluation>{...}</evaluation>[<modification>{...}</modification>]"
       }
@@ -198,9 +198,9 @@ python training/data_format.py \
   }
 ]
 ```
-#### Step 2: Model Training
+#### Step 2: Training Stage 1 — EvaModel
 ```bash
-# Scoring only (l-1, Stage 3)
+# Scoring only (l-1, Training Stage 1)
 python main.py train \
     --model_path ./Qwen3-VL-8B-Instruct \
     --data_path ./data/output/training_data_l1.json \
@@ -218,7 +218,7 @@ python main.py train \
 
  🗄️ Use Qwen3-VL-8B-Instruct as the base model and fine-tune with `training_data_l1.json` for scoring to obtain ./lora_weights/l-1.
 ```bash
-# Scoring + Refinement (l-2, Stage 2)
+# Scoring + Refinement (l-2, Optional ablation)
 python main.py train \
     --model_path ./Qwen3-VL-8B-Instruct \
     --data_path ./data/output/training_data_l2.json \
@@ -232,8 +232,9 @@ python main.py train \
     --gradient_accumulation_steps 8
 ```
  🗄️ Use Qwen3-VL-8B-Instruct as the base model and fine-tune with training_data_l2.json for scoring and refinement to obtain ./lora_weights/l-2.
+### Training Stage 2 — Full RefModel
 ```bash
-# Scoring + Refinement (l-3-distill, Stage 2)
+# Scoring + Refinement (l-3-distill, Training Stage 2)
 python training/train_lora_distill.py \
     --base_model_path ./Qwen3-VL-8B-Instruct \
     --teacher_lora_path ./lora_weights/l-1 \
