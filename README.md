@@ -166,7 +166,7 @@ AgentGER follows a two-stage curriculum learning strategy. In Training Stage 1, 
 #### Knowledge Distillation Description：
 * Teacher Model: l-1 (frozen EvaModel)
 * Student Model: l-3-distill (Model with both scoring and refinement capabilities)
-* Knowledge distillation and experience replay mitigate catastrophic forgetting and help preserve EvaModel's evaluation capability during refinement training.After training l-1 as EvaModel, use a frozen copy of l-1 as the teacher and initialize RefModel from l-1. The full RefModel is then trained on evaluation and refinement data using refinement, knowledge-distillation, and experience-replay objectives.
+* Knowledge distillation and experience replay mitigate catastrophic forgetting and help preserve EvaModel's evaluation capability during refinement training. After training l-1 as EvaModel, use a frozen copy of l-1 as the teacher and initialize RefModel from l-1. The full RefModel is then trained on evaluation and refinement data using refinement, knowledge-distillation, and experience-replay objectives.
  
 🗄️ Perform LoRA fine-tuning on Qwen3-VL-8B-Instruct: fine-tune with a scoring-only dataset to obtain `l-1`, and fine-tune with a dataset containing scores and refined summaries to obtain `l-2`. 
 ### Training Steps
@@ -218,7 +218,7 @@ python main.py train \
 
  🗄️ Use Qwen3-VL-8B-Instruct as the base model and fine-tune with `training_data_l1.json` for scoring to obtain ./lora_weights/l-1.
 ```bash
-# Scoring + Refinement (l-2, Optional ablation)
+# Scoring + Refinement (l-2, Training Stage 2)
 python main.py train \
     --model_path ./Qwen3-VL-8B-Instruct \
     --data_path ./data/output/training_data_l2.json \
@@ -257,7 +257,7 @@ python training/train_lora_distill.py \
 * `--temperature`Distillation temperature
 * `--score_ratio`Ratio of scoring data in mixed data (default 0.3, i.e., 30% scoring data + 70% refinement data)  
   
-🗄️ Use l-2 as the teacher model and perform knowledge distillation with a mixed dataset (scoring dataset + scoring + refinement summary dataset) to obtain `l-3-distill`, which maintains both high-quality scoring and refinement capabilities.
+🗄️ Use the frozen `l-1` EvaModel as the teacher and perform knowledge distillation with a mixed dataset containing evaluation and refinement samples to obtain `l-3-distill`, which maintains both evaluation and refinement capabilities.
 ## 🏆 Main Results
 | Method | PC (↑) | SC (↑) | MAE (↓) | MSE (↓) |
 |---|---:|---:|---:|---:|
